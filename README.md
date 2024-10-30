@@ -1,3 +1,7 @@
-Browser extension to list the URLs of all open tabs. Compatible with Chrome/Opera/Firefox and Firefox for Android
+# tabsync
 
-[https://addons.mozilla.org/firefox/addon/tab-list/](https://addons.mozilla.org/firefox/addon/tab-list/)
+Sync open tabs with other devices seamlessly.
+
+- used [https://github.com/conceptualspace/tablist](tablist) addon as starting point
+- about:debugging
+- https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/tabs/onUpdated

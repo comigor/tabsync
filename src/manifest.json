@@ -1,10 +1,17 @@
 {
   "manifest_version": 2,
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tabsync@borges.dev",
+      "strict_min_version": "42.0"
+    }
+  },
 
-  "name": "tab list",
-  "description": "Show a list of open tabs for easy backup",
-  "version": "1.7",
-  "author": "dev@conceptualspace.net",
+
+  "name": "tabsync",
+  "description": "Sync you open tabs",
+  "version": "0.0.1",
+  "author": "igor@borges.dev",
 
   "background": {
     "scripts": ["background.js"]
@@ -12,9 +19,10 @@
 
   "browser_action": {
     "default_icon": "icon.png",
-    "default_title": "List Tabs"
+    "default_title": "tabsync"
   },
   "permissions": [
-    "tabs"
+    "tabs",
+    "sessions"
   ]
 }
