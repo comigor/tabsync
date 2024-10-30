@@ -1,27 +1,36 @@
-// web extensions polyfill for ff/chrome
-window.browser = (() => {
-    return window.browser || window.chrome;
-})();
+document.addEventListener('DOMContentLoaded', () => {
+    const projectIdInput = document.getElementById('projectId');
+    const apiKeyInput = document.getElementById('apiKey');
+    const saveButton = document.getElementById('saveButton');
+    const fullSyncButton = document.getElementById('fullSyncButton');
 
-let tabListTabId = null;
+    // Load existing values from storage
+    browser.storage.sync.get(['supabaseProjectId', 'supabaseApiKey']).then((result) => {
+        projectIdInput.value = result.supabaseProjectId || '';
+        apiKeyInput.value = result.supabaseApiKey || '';
+    });
 
-async function listTabs() {
-    const list = document.getElementById('list');
-    let tabs = await browser.tabs.query({});
-    for (let i = 0; i < tabs.length; ++i) {
-        let p = document.createElement('p');
-        p.appendChild(document.createTextNode(JSON.stringify(tabs[i])));
-        list.appendChild(p);
-    }
-    if (tabListTabId) {
-        browser.tabs.update(tabListTabId, {active:true, highlighted:true});
-    }
-}
+    // Save values to storage when the button is clicked
+    saveButton.addEventListener('click', () => {
+        const projectId = projectIdInput.value;
+        const apiKey = apiKeyInput.value;
 
-async function init() {
-    let tab = await browser.tabs.getCurrent();
-    tabListTabId = tab.id;
-    listTabs();
-}
+        browser.storage.sync.set({
+            supabaseProjectId: projectId,
+            supabaseApiKey: apiKey
+        }).then(() => {
+            alert('Credentials saved successfully!');
+        }).catch((error) => {
+            console.error('Error saving credentials:', error);
+        });
+    });
 
-init();
+    fullSyncButton.addEventListener('click', () => {
+        browser.runtime.sendMessage({
+            type: 'callFn',
+            fnName: 'fullSync',
+        }).catch((error) => {
+            console.error('Error:', error);
+        });
+    });
+});

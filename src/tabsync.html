@@ -2,13 +2,21 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>Tab List</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Supabase Credentials</title>
+        <script src="content_script.js"></script>
     </head>
-
-    <body style="background-color: black; color: gainsboro;">
-        <div id="logs"></div>
-        <div id="list"></div>
+    <body>
+        <h1>Supabase Credentials</h1>
+        <form id="supabaseForm">
+            <label for="projectId">Supabase Project ID:</label>
+            <input type="text" id="projectId" required><br><br>
+            
+            <label for="apiKey">Supabase API Key:</label>
+            <input type="text" id="apiKey" required><br><br>
+            
+            <button type="button" id="saveButton">Save</button>
+            <button type="button" id="fullSyncButton">Full Sync</button>
+        </form>
     </body>
-
-    <script src="content_script.js"></script>
 </html>
