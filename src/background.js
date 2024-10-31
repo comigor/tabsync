@@ -1,6 +1,8 @@
 let supabaseProjectId = '';
 let supabaseApiKey = '';
-let cache = {};
+let cacheId = {};
+let cacheSharedId = {};
+let supabaseCli;
 
 async function loadCredentials() {
     let result = await browser.storage.sync.get(['supabaseProjectId', 'supabaseApiKey']);
@@ -8,74 +10,43 @@ async function loadCredentials() {
     supabaseApiKey = result.supabaseApiKey;
 }
 
-async function syncLocalToRemote(localTab) {
-    if (localTab.url.startsWith('https')) {
-        let sharedId = await browser.sessions.getTabValue(localTab.id, 'sharedId');
-        let response;
-
-        if (sharedId) {
-            console.log(`syncLocalToRemote: ${sharedId}`);
-            console.log(localTab);
-            // update on remote 
-            response = await fetch(`https://${supabaseProjectId}.supabase.co/rest/v1/tabs?sharedId=eq.${sharedId}`, {
-                method: 'PATCH',
-                headers: {
-                    'apikey': supabaseApiKey,
-                    'Authorization': `Bearer ${supabaseApiKey}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    // 'Prefer': 'return=representation; resolution=merge-duplicates',
-                    'Prefer': 'return=representation',
-                },
-                body: JSON.stringify({
-                    'url': localTab.url,
-                    'title': localTab.title,
-                    'pinned': localTab.pinned,
-                    'openerTabId': localTab.openerTabId,
-                }),
-            });
-        } else {
-            // insert on remote new id
-            sharedId = crypto.randomUUID();
-            console.log(`syncLocalToRemote: new tab ${sharedId}`);
-            console.log(localTab);
-            await browser.sessions.setTabValue(localTab.id, 'sharedId', sharedId);
-
-            response = await fetch(`https://${supabaseProjectId}.supabase.co/rest/v1/tabs`, {
-                method: 'POST',
-                headers: {
-                    'apikey': supabaseApiKey,
-                    'Authorization': `Bearer ${supabaseApiKey}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    // 'Prefer': 'return=representation; resolution=merge-duplicates',
-                    'Prefer': 'return=representation',
-                },
-                body: JSON.stringify({
-                    'sharedId': sharedId,
-                    'url': localTab.url,
-                    'title': localTab.title,
-                    'pinned': localTab.pinned,
-                    'openerTabId': localTab.openerTabId,
-                }),
-            });
-        }
-        await cacheTab(localTab);
+async function syncLocalToRemote(localTab, force = false) {
+    let sharedId = await browser.sessions.getTabValue(localTab.id, 'sharedId');
+    if (sharedId) {
+        if (cacheSharedId[sharedId].url == localTab.url && !force) return;
+    } else {
+        sharedId = crypto.randomUUID();
+        await browser.sessions.setTabValue(localTab.id, 'sharedId', sharedId);
     }
+
+    console.log(`syncLocalToRemote: ${sharedId}`);
+    console.log(localTab);
+
+    await supabaseCli
+        .from('tabs')
+        .upsert({
+            'sharedId': sharedId,
+            'url': localTab.url,
+            'title': localTab.title,
+            'pinned': localTab.pinned,
+            'openerTabId': localTab.openerTabId,
+        })
+
+    await cacheTab(localTab);
 }
 
 async function syncRemoteToLocal(remoteTab) {
     console.log(`syncRemoteToLocal: ${remoteTab.sharedId}`);
     console.log(remoteTab);
 
-    let localTabs = await browser.tabs.query({});
-    let exists = localTabs.find(async (t) => (await browser.sessions.getTabValue(t.id, 'sharedId')) === remoteTab.sharedId);
-    if (!exists) {
+    if (cacheSharedId[remoteTab.sharedId]) {
+        // TODO: update
+    } else {
         let localTab = await browser.tabs.create({
             url: remoteTab.url,
             pinned: remoteTab.pinned,
             // discarded: true,
-            openerTabId: remoteTab.openerTabId,
+            // openerTabId: remoteTab.openerTabId,
         });
         await browser.sessions.setTabValue(localTab.id, 'sharedId', remoteTab.sharedId);
         await cacheTab(localTab);
@@ -83,26 +54,23 @@ async function syncRemoteToLocal(remoteTab) {
 }
 
 browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.url.startsWith('https')) {
+    if (changeInfo.status === 'complete') {
         await loadCredentials();
         await syncLocalToRemote(tab);
     }
 });
 
 browser.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-    let sharedId = cache[tabId].sharedId;
+    let sharedId = cacheId[tabId].sharedId;
 
     if (sharedId) {
         await loadCredentials();
         console.log(`remove tab: ${sharedId}`);
-        await fetch(`https://${supabaseProjectId}.supabase.co/rest/v1/tabs?sharedId=eq.${sharedId}`, {
-            method: 'DELETE',
-            headers: {
-                'apikey': supabaseApiKey,
-                'Authorization': `Bearer ${supabaseApiKey}`,
-                // 'Prefer': 'return=minimal',
-            },
-        });
+
+        await supabaseCli.from('tabs').delete().eq('sharedId', sharedId);
+
+        delete cacheId[tabId];
+        delete cacheSharedId[sharedId];
     }
 });
 
@@ -129,7 +97,7 @@ async function fullSync() {
     }
 
     for (let index = 0; index < localTabs.length; index++) {
-        await syncLocalToRemote(localTabs[index]);
+        await syncLocalToRemote(localTabs[index], true);
     }
 
     await fillCache();
@@ -137,8 +105,13 @@ async function fullSync() {
 
 async function cacheTab(localTab) {
     let tabId = localTab.id;
-    cache[tabId] = localTab;
-    cache[tabId].sharedId = await browser.sessions.getTabValue(tabId, 'sharedId');
+    let sharedId = await browser.sessions.getTabValue(tabId, 'sharedId');
+    
+    cacheId[tabId] = localTab;
+    cacheId[tabId].sharedId = sharedId;
+
+    cacheSharedId[sharedId] = localTab;
+    cacheSharedId[sharedId].sharedId = sharedId;
 }
 
 async function fillCache() {
@@ -163,6 +136,15 @@ browser.runtime.onMessage.addListener(async (data, sender) => {
 async function init() {
     await fillCache();
     await loadCredentials();
+
+    eval(await (await fetch(browser.runtime.getURL('supabase.js'))).text());
+    supabaseCli = supabase.createClient(`https://${supabaseProjectId}.supabase.co`, supabaseApiKey);
+    // supabaseCli
+    //     .channel('room1')
+    //     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tabs' }, console.log)
+    //     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tabs' }, console.log)
+    //     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tabs' }, console.log)
+    //     .subscribe();
 }
 
 init();
