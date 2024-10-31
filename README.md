@@ -31,6 +31,16 @@ using ( true );
 * Click on the extension icon and persist Supabase project ID and anon key
 * Click on full sync button to do the initial sync
 
+## Scratch board
+Maybe in the future I can connect this extension directly to Sidebery?
+```
+browser.runtime.connect('{3c078156-979c-498b-8990-85f7987dd929}', {name: '{"srcType":2,"dstType":0,"srcWinId":933}'})
+await getSideberyState().Snapshots.createSnapshot()
+snaps = await getSideberyState().Snapshots.getStoredSnapshots()
+snap = await getSideberyState().Snapshots.getNormalizedSnapshot(snaps, snaps.length - 1)
+await getSideberyState().Snapshots.openWindows(snap, windowId)
+```
+
 ## References
 
 - used [https://github.com/conceptualspace/tablist](tablist) addon as starting point

@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const apiKeyInput = document.getElementById('apiKey');
     const saveButton = document.getElementById('saveButton');
     const fullSyncButton = document.getElementById('fullSyncButton');
+    const overwriteRemoteButton = document.getElementById('overwriteRemoteButton');
+    const overwriteLocalButton = document.getElementById('overwriteLocalButton');
 
     // Load existing values from storage
     browser.storage.sync.get(['supabaseProjectId', 'supabaseApiKey']).then((result) => {
@@ -29,6 +31,23 @@ document.addEventListener('DOMContentLoaded', () => {
         browser.runtime.sendMessage({
             type: 'callFn',
             fnName: 'fullSync',
+        }).catch((error) => {
+            console.error('Error:', error);
+        });
+    });
+
+    overwriteRemoteButton.addEventListener('click', () => {
+        browser.runtime.sendMessage({
+            type: 'callFn',
+            fnName: 'overwriteRemoteWithLocal',
+        }).catch((error) => {
+            console.error('Error:', error);
+        });
+    });
+    overwriteLocalButton.addEventListener('click', () => {
+        browser.runtime.sendMessage({
+            type: 'callFn',
+            fnName: 'overwriteLocalWithRemote',
         }).catch((error) => {
             console.error('Error:', error);
         });

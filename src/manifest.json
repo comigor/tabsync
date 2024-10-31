@@ -3,7 +3,7 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "tabsync@borges.dev",
-      "strict_min_version": "42.0"
+      "strict_min_version": "67.0"
     }
   },
 
@@ -13,11 +13,13 @@
   "author": "igor@borges.dev",
 
   "background": {
-    "scripts": ["background.js"]
+    "scripts": [
+			"extern/js-syncqueue/src.js",
+      "extern/we-tabcache/src.js",
+      "extern/supabase.js",
+      "background.js"
+    ]
   },
-
-  "web_accessible_resources": ["supabase.js"],
-  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'",
 
   "browser_action": {
     "default_icon": "icon.png",
