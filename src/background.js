@@ -10,6 +10,8 @@ async function loadCredentials() {
 
 async function syncLocalToRemote(localTab) {
     if (/^(moz-extension|https?)/.test(localTab.url)) {
+        if (localTab.url.startsWith(browser.runtime.getURL(''))) return;
+
         console.log('syncLocalToRemote');
         let sharedId = cache.getValue(localTab.id, 'sharedId');
         if (!sharedId) {
@@ -128,7 +130,7 @@ async function overwriteLocal() {
     await loadCredentials();
 
     // get open tabs ids
-    let tabIds = []
+    let tabIds = [];
     await cache.forEach(async (tab) => {
         cache.setValue(tab.id, 'isForced', true); // to avoid deleting on remote
         tabIds.push(tab.id);
@@ -159,22 +161,46 @@ async function overwriteLocal() {
 async function fullSync() {
     await loadCredentials();
 
-    // full sync
-    let localTabs = await browser.tabs.query({});
-    console.log('local:');
-    console.log(localTabs);
+    // get local open tabs
+    let localTabs = [];
+    await cache.forEach(async (tab) => {
+        localTabs.push({
+            tab: tab,
+            sharedId: await cache.getValue(tab.id, 'sharedId'),
+        });
+    });
 
-    let remoteTabs = (await supabaseCli.from('tabs').select('*')).data;
-    console.log('remote:');
-    console.log(remoteTabs);
+    let remoteTabs = (await supabaseCli.from('tabs').select('*')).data.map((t) => ({
+        tab: JSON.parse(t.tabJson),
+        sharedId: t.sharedId,
+    }));
 
-    for (let index = 0; index < remoteTabs.length; index++) {
-        await syncRemoteToLocal(remoteTabs[index]);
-    }
+    const localTabsMap = new Map(localTabs.map(item => [item.sharedId, item]));
+    const remoteTabsMap = new Map(remoteTabs.map(item => [item.sharedId, item]));
 
-    for (let index = 0; index < localTabs.length; index++) {
-        await syncLocalToRemote(localTabs[index], true);
-    }
+    const toUpdateOnLocal = remoteTabs
+        .filter(item => {
+            const localItem = localTabsMap.get(item.sharedId);
+            return localItem && item.tab.lastAccessed > localItem.tab.lastAccessed;
+        });
+    const toUpdateOnRemote = localTabs
+        .filter(item => {
+            const remoteItem = remoteTabsMap.get(item.sharedId);
+            return remoteItem && item.tab.lastAccessed > remoteItem.tab.lastAccessed;
+        });
+
+    const toInsertOnLocal = remoteTabs.filter(item => !localTabsMap.has(item.sharedId));
+    const toInsertOnRemote = localTabs.filter(item => !remoteTabsMap.has(item.sharedId));
+
+    console.log('toUpdateOnLocal', toUpdateOnLocal);
+    console.log('toUpdateOnRemote', toUpdateOnRemote);
+    console.log('toInsertOnLocal', toInsertOnLocal);
+    console.log('toInsertOnRemote', toInsertOnRemote);
+
+    toUpdateOnLocal.forEach(syncRemoteToLocal);
+    toUpdateOnRemote.map(i => i.tab).forEach(syncLocalToRemote);
+    toInsertOnLocal.forEach(syncRemoteToLocal);
+    toInsertOnRemote.map(i => i.tab).forEach(syncLocalToRemote);
 }
 
 let cache = newCache({
