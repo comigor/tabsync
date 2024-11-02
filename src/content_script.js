@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     overwriteRemoteButton.addEventListener('click', () => {
         browser.runtime.sendMessage({
             type: 'callFn',
-            fnName: 'overwriteRemoteWithLocal',
+            fnName: 'overwriteRemote',
         }).catch((error) => {
             console.error('Error:', error);
         });
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     overwriteLocalButton.addEventListener('click', () => {
         browser.runtime.sendMessage({
             type: 'callFn',
-            fnName: 'overwriteLocalWithRemote',
+            fnName: 'overwriteLocal',
         }).catch((error) => {
             console.error('Error:', error);
         });
